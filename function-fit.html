@@ -1,0 +1,124 @@
+<html>
+    <head>
+		<title>EGC test</title>
+	</head>
+	<body>
+		<script src="egc.js"></script>
+		<!-- quick'n'dirty inclusion of CanvasJS for demo -->
+		<script src="http://canvasjs.com/assets/script/canvasjs.min.js"></script>
+		
+		<div id="chart" style="width: 100%; height: 400px; opacity: 1;"></canvas>
+
+		<script>
+			var yOffset = 50;
+		
+			var yNoise = new egc.Gaussian1D(0, 1);
+			var dataFunction = function (x) {
+				return x + Math.sin(x*0.6)*5 + yNoise.random()*1 + yOffset;
+			};
+			var axisY = {minimum: -12 + yOffset, maximum: 12 + yOffset};
+		
+			var xDist = new egc.Gaussian1D(0, 10);
+			var axisX = {minimum: -xDist.sd*2, maximum: xDist.sd*2};
+			var points = [];
+		
+			for (var i = 0; i < 100; i++) {
+				x = xDist.random();
+				points.push({
+					x: x,
+					y: dataFunction(x)
+				});
+			}
+		
+			var me = new egc.MultiEstimator(2, 20);
+			var colours = [];
+			for (var j = 0; j < me.estimators.length; j++) {
+				var colour = "rgba(" + [Math.round(Math.random()*180), Math.round(Math.random()*180), Math.round(Math.random()*180)].join(", ") + ", 0.1)";
+				colours[j] = colour;
+			}
+			// All at once
+			/*
+			for (var i = 0; i < points.length; i++) {
+				var point = points[i];
+				me.addConditionalObservation([null, null], [point.x, point.y]);
+			}
+			drawChart(points);
+			//*/
+			
+			// One by one
+			//*
+			var observedPoints = 0;
+			var addPointGap = 1000;
+			var addPointGapFactor = 0.95;
+			function addPoint() {
+				if (observedPoints >= points.length) {
+					console.log(me.confidences);
+					return;
+				}
+				var point = points[observedPoints++];
+				me.addConditionalObservation([null, null], [point.x, point.y]);
+				drawChart(points.slice(0, observedPoints));
+				addPointGap *= addPointGapFactor;
+				setTimeout(addPoint, addPointGap);
+			}
+			setTimeout(addPoint, 0);
+			//*/
+			
+			function drawChart(points) {
+				var chartData = []
+				var totalConfidence = 0;
+				for (var j = 0; j < me.estimators.length; j++) {
+					totalConfidence += me.confidence[j];
+				}
+				for (var j = 0; j < me.estimators.length; j++) {
+					chartData.push({
+						type: "scatter",
+						color: colours[j],
+						dataPoints: []
+					});
+				}
+				for (var i = 0; i < 500; i++) {
+					var randomX = xDist.random();
+					var point = me.random([randomX, null]);
+					var estimatorIndex = point.estimator;
+					chartData[estimatorIndex].dataPoints.push({
+						x: point[0],
+						y: point[1]
+					});
+				}
+				
+				var averagePoints = [];
+				for (var x = axisX.minimum; x <= axisX.maximum; x += 0.1) {
+					var point = me.mean([x, null]);
+					averagePoints.push({
+						x: point[0],
+						y: point[1]
+					});
+				}
+
+				// Clear out the random points for the estimators
+				//chartData = [];
+				
+				var chart = new CanvasJS.Chart("chart", {
+					axisX: JSON.parse(JSON.stringify(axisX)),
+					axisY: JSON.parse(JSON.stringify(axisY)),
+					data: [].concat(chartData).concat([
+						{
+							type: "scatter",
+							markerType: "cross",
+							color: "rgba(0, 0, 0, 1)",
+							dataPoints: points
+						}
+					]).concat([
+						{
+							type: "line",
+							dataPoints: averagePoints
+						}
+					])
+				});
+
+				chart.render();
+			}
+		</script>
+	</body>
+</html>

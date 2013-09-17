@@ -1,0 +1,40 @@
+<html>
+    <head>
+		<title>EGC test</title>
+	</head>
+	<body>
+		<script src="egc.js"></script>
+
+		<script>
+		
+			var xDist = new egc.Gaussian1D(0, 5);
+			var yDist = new egc.Gaussian1D(0, 5);
+			var zFunction = function (x, y) {
+				return x*y;
+			};
+			var zEstimator = new egc.GaussianEstimator(1);
+		
+			var me = new egc.MultiEstimator(3, 10);
+			for (var i = 0; i < 500; i++) {
+				var x = xDist.random(), y = yDist.random();
+				var z = zFunction(x, y);
+				zEstimator.addObservation([z]);
+
+				me.addConditionalObservation([null, null, null], [x, y, z]);
+			}
+
+			console.log(me.mean([3, null, 9]));
+			console.log([zEstimator.mean(0), zEstimator.covar(0, 0)]);
+			console.log('-----------------');
+
+			for (var i = 0; i < me.estimators.length; i++) {
+				var estimator = me.estimators[i];
+				var meanVector = [];
+				for (var j = 0; j < estimator.varCount; j++) {
+					meanVector[j] = estimator.mean(j);
+				}
+				console.log(meanVector);
+			}
+		</script>
+	</body>
+</html>
